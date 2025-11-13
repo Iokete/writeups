@@ -1,11 +1,4 @@
----
-title: "Exploring Heap Exploitation: The House of Force Technique"
-layout: post
-author: Jorge Moreno
-category: pwn
-tags: [medium, heap]
----
-
+# Exploring Heap Exploitation: The House of Force Technique
 
 > The House of Force attack is a heap exploitation technique that relays in abusing a heap overflow bug into corrupting the top chunk size, that way we can allocate enough memory to trigger an arbitrary write vulnerability.
 > 
@@ -29,8 +22,6 @@ In this example we allocate a chunk for the minimum size 0x20, and fill with Aâ€
 This way we can, for example, set the top chunk size to 0xffffffffffffffff, so next time we `malloc` we can allocate a large amount of bytes. Then we can `malloc` again, and write data to any address in memory. To get code execution we can use `__malloc_hook`. The hook is a component that some functions have to modify the behaviour of it in case we need it to do something different. If `__malloc_hook` points to NULL, it will act like a default `malloc`, but if inside it there is any address it will jump into it, executing whatever there is inside. 
 
 ## Challenge Solution
-
----
 
 We are given a binary **force** with a directory **.glibc/** with the libc binary that the executable uses.
 
@@ -86,7 +77,7 @@ To leverage the attack we will follow the next steps:
 4. `malloc` a third time to write the system address leak that we had into `__malloc_hook`.
 5. And `malloc` the last time passing as a parameter the address where we stored the ``/bin/sh`` string to get our shell. 
 
----
+
 
 We define the following Python helper method to `malloc`.
 
