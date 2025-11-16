@@ -360,4 +360,4 @@ Spell: $ id
 uid=0(root) gid=0(root) groups=0(root)
 ```
 
-You can download the full script [here](assets/solver.py) or the solver with [TLS Storage](pwn\urjc.ctf.course\tls.dtor.overwrite.gestorcuentas) Overwrite approach [here](assets/solver_tls.py)
+You can download the full script [here](assets/solver.py) or the solver with [TLS Storage overwrite](https://github.com/Iokete/writeups/tree/main/pwn/urjc.ctf.course/tls.dtor.overwrite.gestorcuentas) approach [here](assets/solver_tls.py)
