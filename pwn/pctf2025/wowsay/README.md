@@ -26,6 +26,6 @@ for i in range(30):
         io.send(payload)
 ```
 
-[stack](assets/leak%20main%20addr.gif)
+![stack](assets/leak%20main%20addr.gif)
 
 - We can see at position 23 that there is no PIE in the challenge, so I compiled a binary locally to see the address of the GOT entries.
