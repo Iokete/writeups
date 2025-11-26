@@ -1,4 +1,4 @@
-# Magic Scrolls - HTB Heap Challenge
+# wowsay - Blind format strings
 
 
 ## TL;DR
