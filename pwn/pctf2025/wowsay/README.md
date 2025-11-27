@@ -26,6 +26,13 @@ for i in range(30):
         io.send(payload)
 ```
 
-[stack](assets/leak%20main%20addr.gif)
+![stack](assets/leak%20main%20addr.gif)
 
-- We can see at position 23 that there is no PIE in the challenge, so I compiled a binary locally to see the address of the GOT entries.
+- One of the approaches I tried at this point was overwriting the first entry of `fini_array`, because there was a pointer to this list inside the stack, but the write was not working so I had to leave this path.
+
+- We can see at position 23 that there is no PIE in the challenge, so I compiled a binary locally to see the address of the GOT entries. 
+- The address ``0x401352`` was a bit too far to be the main function, so I started scanning the binary from ``0x401100`` and we found something interesting close to ``0x401190``
+
+![winfunc](assets/fuzz%20win%20func.gif)
+
+- We see some bytes at these addresses
