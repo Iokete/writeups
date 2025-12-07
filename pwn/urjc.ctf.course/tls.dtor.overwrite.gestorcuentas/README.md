@@ -36,12 +36,12 @@ Category: **pwn**
 - This is the `struct user_t` where are using in the challenge:
 
 ```c
-struct user_t{
+typedef struct {
 	int id;
 	int initialized;
 	char *pass;
 	char name[16];
-}
+} user_t;
 ```
 
 - In the `new_account()` function there is a 0x11 byte overflow:
