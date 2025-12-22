@@ -143,7 +143,7 @@ FILE @ 0x615b493e82a0
 
 - The `_IO_FILE_plus` is a struct with variables: the file (with a structure like shown in the previous layout) and a struct `_IO_jump_t vtable`. The last one is a structure full of pointers that get called when doing specific actions with the FILE, we can take a look to the address `0x00007cf0f181a560` located in the heap layout.
 
-```
+```nasm
 pwndbg> tele 0x00007cf0f181a560
 00:0000│ rbp 0x7cf0f181a560 (__GI__IO_file_jumps) ◂— 0
 01:0008│+008 0x7cf0f181a568 (__GI__IO_file_jumps+8) ◂— 0
