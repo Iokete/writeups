@@ -1,7 +1,7 @@
 # Days Gone 
 
 ## TL;DR
-- UAF in the kernel module, win function
+- UAF in the kernel module, win function, ARM
 
 ## Challenge Description
 
