@@ -114,4 +114,4 @@ static ssize_t add(struct switch_device* dev){
 
 ### Solvers
 
-You can find the solver [here](assets/main.c).
+You can find the solver [here](assets/solver.c).
