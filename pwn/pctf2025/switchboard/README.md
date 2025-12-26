@@ -25,6 +25,7 @@ struct switch_device {
 };
 ```
 
+Device ops:
     * ``obj_new``: Creates a new switch_device object, allocates a 32-byte buffer, initializes all pointers to the buffer start, sets ``inuse=1``, and adds it to the global list.
     * ``obj_select``: Selects a device by index from the device list.
     * ``rx_handle``: `copy_from_user` handler. If the device ``inuse==0``, it allocates a new 32-byte buffer first.
