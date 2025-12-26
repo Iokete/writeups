@@ -70,10 +70,10 @@ struct seq_operations {
 ```
 
 - Knowing this we can follow the next approach to leak kernel pointers:
-    1. Double free a device object
-    2. Allocate a device (we do this first because it is using ``kzalloc`` to zero out previous content)
-    3. Because it is freed again, we can place `seq_operations` inside by calling ``open("/proc/self/stat")``
-    4. Read from the device to get leaks
+    1. Double free a device object. **After double-freeing an object the freelist gets tampered and gets stuck in an infinite loop, so we know that our next object will be 100% allocated here**
+    3. Allocate a device (we do this first because it is using ``kzalloc`` to zero out previous content)
+    4. Because it is freed again, we can place `seq_operations` inside by calling ``open("/proc/self/stat")``
+    5. Read from the device to get leaks
 
 - After getting leaks we can just free twice again an object and write over its next pointer to allocate wherever we want right? There is a problem, when creating an object we allocate **twice** in kmalloc-cg-32, this is because in the `obj_new` function we allocate once for ``dev->buf`` (the one we are interested in), and it calls `add()` to add the created device to the linked list. This last function allocates a ``struct devices`` object that is an entry in the linked list, so it has 3 pointers (24 bytes), and gets allocated in the same cache.
 
