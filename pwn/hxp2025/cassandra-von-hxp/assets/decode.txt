@@ -1,0 +1,1 @@
+echo -n 'hxp{at_l3as7_y0u_f0und_s7rncmp_-_r0p_sp0ns0r3d_by_n3wl1b___2739b2436edfb292}' | openssl aes-256-cbc -pbkdf2 -iter 100000 -salt -d -pass stdin -in cassandra-von-hxp.tar.xz.enc -out cassandra-von-hxp.tar.xz
