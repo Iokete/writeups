@@ -1,7 +1,7 @@
 # Days Gone 
 
 ## TL;DR
-- UAF in the kernel module, win function, ARM
+- entry level kernel challenge, abuse UAF to overwrite ``weapon->attack_func`` pointer with ``commit_creds(prepare_kernel_cred(0))`` (win function)  
 
 ## Challenge Description
 
