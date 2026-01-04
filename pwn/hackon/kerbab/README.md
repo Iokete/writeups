@@ -215,7 +215,7 @@ struct key_info{
 };
 ```
 
-- `struct secure_buffer`: it is stored in the kernel heap too (kmalloc-16), and saves the pointer to the encrypted user data, and its size.
+- `struct secure_buffer`: it is stored in the kernel heap too (``kmalloc-16``), and saves the pointer to the encrypted user data, and its size.
 - `struct new_secbuff_arg`: structure used to send data to the kernel device, the `size` of the data, RC4 `key` and the buffer with the not yet encrypted data.
 - `struct read_secbuff_arg`: structure used to read data from the kernel, we don't use this in our exploit. It is the same as `new_secbuff_arg` but with an `index` field. It looks for that index in the global list and fills our buffer with its `secure_buffer.size` value.
 - `struct key_info`: this is one of the main bugs in this module. The `key_info` structure holds a pointer to the current `task_struct`, this struct has all the relevant information about the current process (including SECCOMP flags, UID, GID, etc.). 
@@ -361,7 +361,7 @@ gef> x/4gx 0xffff88803db71930
 
 The next pointer's last byte got modified to 0x77.
 
-The kernel heap has caches for each size of allocations, for example an allocation of 1000 bytes would be in `kmalloc-1k` cache, one of 30 bytes to `kmalloc-32`, etc. In this case we are allocating objects of size 16 so our object ends up in kmalloc-16, we can easily verify this with gef's command `slab-contains 0xffff88803db71930`
+The kernel heap has caches for each size of allocations, for example an allocation of 1000 bytes would be in `kmalloc-1k` cache, one of 30 bytes to `kmalloc-32`, etc. In this case we are allocating objects of size 16 so our object ends up in ``kmalloc-16``, we can easily verify this with gef's command `slab-contains 0xffff88803db71930`
 
 ```c
 gef> slab-contains 0xffff88803db71930
@@ -438,7 +438,7 @@ gef> slub-dump kmalloc-16
 
 Now, when we `create_buf` again, there will be 2 allocations one for `secure_buffer`, and the second one for our encrypted data, and both will end up in the same address: ``0xffff88803db71940``.
 
-The last step is create a function that RC4 encrypts our input and sends it to the kernel, so when the internal `rc4_crypt` function gets called, the data gets decrypted into the kernel heap. As I said, I do not know anything about cryptography, so I simply copied the functions from the kernel driver source code.
+The last step is to create a function that RC4 encrypts our input and sends it to the kernel, so when the internal `rc4_crypt` function gets called, the data gets decrypted into the kernel heap. As I said, I do not know anything about cryptography, so I simply copied the functions from the kernel driver source code.
 
 ```c
 struct rc4_state {
@@ -573,4 +573,5 @@ Now we go back to `run.sh` and enable `kaslr` to make sure it works with every p
 ## Solvers
 - RC4 bruteforcer: [rc4.py](assets/rc4.py)
 - Final exploit: [exploit.c](assets/exploit.c)
-- VM start script
+- VM start script: [run.sh](assets/run.sh)
+- Challenge files: [kerbab.zip](assets/kerbab.zip)
