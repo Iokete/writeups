@@ -340,7 +340,7 @@ We run the VM and connect with GDB `gdb vmlinux` and once we are in, `target rem
 
 We can add the module symbols the same way `add-symbol-file initramfs/chall/kebab_mod.ko 0xffffffffc0002000`. We will place 2 breakpoints, in the kmalloc we are interested in (the one used to store the encrypted data), and one after the encryption to see how it got filled.
 
-![alt text](kmalloc.png)
+![alt text](assets/kmalloc.png)
 
 Now with a single ``stepover`` we can check `$rax` to see the pointer to the new chunk. We placed a breakpoint at the end of `rc4_crypt` to look at the chunk.
 This is **before** the encryption:
@@ -547,3 +547,30 @@ gef> x $rax
 0xffff88803dbb4140:	0x0000000000000000
 
 ```
+
+It is already 0 because of ``kzalloc``, but after the encryption it will get filled with data. We just have to send our 0's encrypted again, and we will successfully zero out `_TIF_SECCOMP` flag, making it possible to read the flag.
+
+
+```c
+static void cat_flag(){
+	int f = open("/root/flag", O_RDONLY);
+	if (f < 0){perror("flag not found"); exit(1);}
+
+	char flagbuf[0x40] = {0};
+
+	read(f, flagbuf, sizeof(flagbuf));
+	printf("[*] Flag: %s", flagbuf);
+	close(f);
+}
+```
+
+Now we go back to `run.sh` and enable `kaslr` to make sure it works with every protection.
+
+## Getting the flag
+
+![flag](assets/flag.gif)
+
+## Solvers
+- RC4 bruteforcer: [rc4.py](assets/rc4.py)
+- Final exploit: [exploit.c](assets/exploit.c)
+- VM start script
