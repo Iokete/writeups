@@ -361,7 +361,7 @@ gef> x/4gx 0xffff88803db71930
 
 The next pointer's last byte got modified to 0x77.
 
-The kernel heap has caches por each size of allocations, for example an allocation of 1000 bytes would be in `kmalloc-1k` cache, one of 30 bytes to `kmalloc-32`, etc. In this case we are allocating objects of size 16 so our object ends up in kmalloc-16, we can easily verify this with gef's command `slab-contains 0xffff88803db71930`
+The kernel heap has caches for each size of allocations, for example an allocation of 1000 bytes would be in `kmalloc-1k` cache, one of 30 bytes to `kmalloc-32`, etc. In this case we are allocating objects of size 16 so our object ends up in kmalloc-16, we can easily verify this with gef's command `slab-contains 0xffff88803db71930`
 
 ```c
 gef> slab-contains 0xffff88803db71930
