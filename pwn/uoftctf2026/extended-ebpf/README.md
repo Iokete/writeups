@@ -55,6 +55,9 @@ index 24ae8f33e5d7..e5641845ecc0 100644
 
 This patch implements 2 major modifications in the implementation of the Linux eBPF verifier. I will refer now (and later on) to [this blog](https://chomp.ie/Blog+Posts/Kernel+Pwning+with+eBPF+-+a+Love+Story) by chompie, that is the one I used to learn throughout the CTF about eBPF internals.
 
+### Absolute basics of eBPF
+
+#### Intro and security measures
 eBPF provides a way of creating and executing kernel level applications from userland as a non-privileged user. As you would think this can be dangerous, and that is the reason why eBPF implements a lot of security measures around its functionality. The verifier will analyze the program, creating a control flow graph and monitorizing the content of the registers. This will be a **static** analysis, meaning he doesn't really know the content of each register, this is the important part. It will keep track of the contents by creating specific ranges: 
 
 From [Kernel Pwning with eBPF - a Love Story](https://chomp.ie/Blog+Posts/Kernel+Pwning+with+eBPF+-+a+Love+Story):
@@ -62,4 +65,20 @@ From [Kernel Pwning with eBPF - a Love Story](https://chomp.ie/Blog+Posts/Kernel
 - ``smin_value``, ``smax_value`` store the min/max value of the register when interpreted as a signed (64 bit) integer.
 - ``u32_min_value``, ``u32_max_value`` store the min/max value of the register when interpreted as an unsigned (32 bit) integer.
 - ``s32_min_value``, ``s32_max_value`` store the min/max value of the register when interpreted as a signed (32 bit) integer.
+- ...
+
+There are two types of registers **pointer** register and **scalar** register, the first one is the one that holds pointers and the verifier will have flags to mark them to its type, making sure we don't execute a memory access instruction with a scalar register. The scalar registers are the ones who hold constant numbers. The verifier will make sure the arithmetic operations (ADD, SUB, MUL, AND, OR, etc.) are safe:
+
+- **Pointer + Pointer**: Blocked.
+- **Pointer + Scalar** : Checks if the result is inside the `map_size` bounds (we will talk about this later).
+- **Scalar + Scalar** : Allowed.
+
+Keep in mind that when doing this checks the verifier **does not know** the actual contents of the registers, so for example if we execute an instruction `BPF_BPF_JMP_IMM(BPF_JGE, BPF_REG_1, 0, 20) (jump 20 instructions forward if r1 > 2)`, and the branch is not taken, the state will be updated to a new range, thinking that r1 is now ``(0, 1)`` (in the unsigned ranges). This is done to prevent OOB accesses, there are more rules but for now this is what we need to understand.
+
+After passing this checks, there is another security measure called **ALU Sanitation**, this will patch the actual eBPF bytecode being executed to check if the state of the verifier matches with the actual state in runtime.
+
+#### Interacting with userland
+eBPF implements a data type called `bpf_map`, by creating a map you can pass values to your eBPF bytecode and it can get accessed by the kernel safely. The map has a fixed size, and that is the max bounds check the verifier is doing `map_size`. There are a lot of map types, but the most relevant for this challenge are `BPF_MAP_TYPE_ARRAY` and `BPF_MAP_TYPE_ARRAY_OF_MAPS`. The first one is a standard array, we will create a map with this type setting a `key_size`, for example 4 bytes as an integer for the index of the array, and `value_size`. As well as `max_entries` of the array.
+
+I will not dive too much into eBPF internals in this writeup, you can get more information about it in the blog I mentioned before, [this one](https://www.zerodayinitiative.com/blog/2020/4/8/cve-2020-8835-linux-kernel-privilege-escalation-via-improper-ebpf-program-verification), or in the [official documentation](https://docs.ebpf.io/).
 
